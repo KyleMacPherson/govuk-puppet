@@ -2,28 +2,22 @@
 #
 #  Delete old snapshots from elasticsearch
 #
-#
 # === Parameters:
+#
+# [*ensure*]
+#   Whether the resources should exist.
 #
 # [*es_repo*]
 #   The local elasticsearch repositories where snapshots are stored.
-#   This could be either a single element or an aray.
+#   This could be either a single element or an array.
 #
 # [*es_snapshot_limit*]
-#   The number of snapshots we want to keep
+#   The number of snapshots we want to keep.
 #
-# [*user*]
-#   User that invokes backup
-#
-# === Variables
-#
-# [*$repositories*]
-#   A string array of Elasticsearch repositories
-#
-class govuk_elasticsearch::housekeeping(
+class govuk_elasticsearch::housekeeping (
+  $ensure = 'present',
   $es_repo = [],
-  $es_snapshot_limit = 5,
-  $user = 'govuk-backup',
+  $es_snapshot_limit = 7,
   ) {
 
   if $es_repo == undef {
@@ -34,26 +28,22 @@ class govuk_elasticsearch::housekeeping(
     $repositories = join(regsubst($es_repo,'(.*)','"\1"'), ' ')
   }
 
-    # This is a CLI JSON processor which allows us to "awk" the data on the fly
-    package { 'jq':
-      ensure => installed,
-    }
+  # This is a CLI JSON processor which allows us to "awk" the data on the fly
+  package { 'jq':
+    ensure => $ensure,
+  }
 
-    file { 'es-prune-snapshots':
-      ensure  => file,
-      path    => '/usr/local/bin/es-prune-snapshots',
-      content => template('govuk_elasticsearch/es-prune-snapshots.erb'),
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0755',
-    }
+  file { 'es-prune-snapshots':
+    ensure  => $ensure,
+    path    => '/usr/local/bin/es-prune-snapshots',
+    content => template('govuk_elasticsearch/es-prune-snapshots.erb'),
+    mode    => '0755',
+  }
 
-    cron { 'elasticsearch-remove-old-snapshots':
-      ensure  => present,
-      command => '/usr/local/bin/es-prune-snapshots',
-      user    => $user,
-      weekday => 3,
-      hour    => 4,
-      minute  => 0,
-    }
+  cron::crondotdee { 'elasticsearch-remove-old-snapshots':
+    ensure  => $ensure,
+    command => '/usr/local/bin/es-prune-snapshots',
+    hour    => 4,
+    minute  => 0,
+  }
 }
